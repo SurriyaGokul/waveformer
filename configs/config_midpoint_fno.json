@@ -1,0 +1,92 @@
+{
+  "experiment_name": "midpoint_fno_50x_upsampling",
+  "data_dir": "data/CIRS_Phantom_Latest/Data set 1(50)",
+  "output_dir": "outputs/midpoint_fno",
+  "device": "cuda",
+  "seed": 42,
+  
+  "in_channels": 1,
+  "out_channels": 1,
+  "base_channels": 32,
+  "num_levels": 4,
+  
+  "fno_hidden_channels": 128,
+  "fno_num_modes_height": 12,
+  "fno_num_modes_width": 12,
+  "fno_num_layers": 2,
+  "fno_use_batchnorm": true,
+  "fno_use_residual": true,
+  "fno_fft_padding": 8,
+  
+  "gru_hidden_channels": null,
+  "gru_kernel_size": 3,
+  
+  "training": {
+    "batch_size": 8,
+    "num_epochs": 100,
+    "learning_rate": 1e-4,
+    "weight_decay": 1e-5,
+    "samples_per_sequence": 20,
+    
+    "_comment": "Curriculum gaps are now controlled by CurriculumSchedule class in code",
+    "_curriculum_schedule": {
+      "epoch_0_to_5": "max_gap = 4 (Learn basic interpolation)",
+      "epoch_6_to_15": "max_gap = 16 (Learn medium motion)",
+      "epoch_16_plus": "max_gap = 48 (Learn full range for 500Hz simulation)"
+    }
+  },
+  
+  "data": {
+    "use_20kHz_only": true,
+    "normalize": true,
+    "_comment": "Uses 20kHz data ONLY. Model is BLIND to focus depth (10mm/15mm) and stiffness (10kPa/60kPa/100kPa). This forces the model to learn invariance."
+  },
+  
+  "validation": {
+    "type": "recursive_2_level",
+    "interval": 5,
+    "_comment": "2-Level Recursive Validation: 1) Predict t_25 from (t_0,t_50), 2) Predict t_12 from (t_0,t_25_pred). Checks error accumulation."
+  },
+  
+  "loss": {
+    "type": "physics_aware",
+    "lambda_iq": 1.0,
+    "lambda_phase": 0.5,
+    "lambda_traj": 0.3,
+    "lambda_pde": 0.2,
+    "description": {
+      "lambda_iq": "Complex IQ Loss - MSE on Real/Imag (reconstruction)",
+      "lambda_phase": "Phase Consistency - Wrap-safe cosine-based (interferometric)",
+      "lambda_traj": "Trajectory Consistency - Complex vector averaging (smoothness)",
+      "lambda_pde": "PDE Consistency - Pearson(Acceleration, Laplacian) (wave equation)"
+    }
+  },
+  
+  "optimizer": {
+    "type": "AdamW",
+    "betas": [0.9, 0.999],
+    "eps": 1e-8
+  },
+  
+  "scheduler": {
+    "type": "CosineAnnealingWarmRestarts",
+    "T_0": 10,
+    "T_mult": 2
+  },
+  
+  "checkpoint": {
+    "save_every": 10,
+    "keep_last_n": 3
+  },
+  
+  "logging": {
+    "log_every": 100,
+    "tensorboard": true
+  },
+  
+  "inference": {
+    "recursion_strategy": "binary_subdivision",
+    "target_frames": 50,
+    "comment": "For 50 frames (gap=49), recursion depth = ceil(log2(49)) = 6"
+  }
+}

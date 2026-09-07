@@ -1,0 +1,70 @@
+{
+    "model": {
+        "name": "ComplexToRealUNet",
+        "in_channels": 1,
+        "base_channels": 32,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "use_motion_interpolation": true,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "flow_hidden_channels": 32,
+        "flow_scale": 0.1,
+        "use_prf_conditioning": false,
+        "prf_hidden_dim": 64
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 2,
+        "num_workers": 4,
+        "iq_norm_scalar": null,
+        "vel_norm_scalar": null,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true
+    },
+    "training": {
+        "num_epochs": 20,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "warmup_epochs": 2,
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0
+    },
+    "loss": {
+        "l1_weight": 1.0,
+        "mse_weight": 1.0,
+        "gdl_weight": 0.0,
+        "temporal_weight": 0.0,
+        "ssim_weight": 0.0,
+        "wave_weight": 0.1,
+        "mask_weight": true,
+        "use_enhanced_loss": true
+    },
+    "flow_losses": {
+        "use_flow_losses": false,
+        "lambda_flow_consistency": 0.0,
+        "lambda_photometric": 0.0,
+        "lambda_flow_smoothness": 0.0,
+        "flow_loss_warmup_epochs": 0
+    },
+    "scheduler": {
+        "type": "CosineAnnealingWarmRestarts",
+        "T_0": 50,
+        "T_mult": 2,
+        "eta_min": 1e-6
+    },
+    "early_stopping": {
+        "patience": 40,
+        "min_delta": 1e-6
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 5,
+        "experiment_name": "fullscale_velocity_v2_pinn_ablation",
+        "output_dir": "outputs"
+    },
+    "seed": 42
+}

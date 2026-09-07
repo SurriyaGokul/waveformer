@@ -1,0 +1,148 @@
+{
+    "model": {
+        "name": "WavePINNv7",
+        "in_channels": 1,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "d_model": 256,
+        "n_heads": 8,
+        "n_self_layers": 2,
+        "n_freq": 32,
+        "n_refine_iters": 2,
+        "dropout": 0.1,
+        "use_attention_skips": true,
+        "skip_attn_d_model": 128,
+        "skip_attn_heads": 4,
+        "skip_attn_n_freq": 32,
+        "skip_attn_dropout": 0.1,
+        "cs_head_mid_channels": 128,
+        "cs_min": 0.3,
+        "cs_max": 8.0
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 2,
+        "num_workers": 4,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true,
+        "enable_prf_augmentation": true,
+        "augmentation_steps": [2, 4, 5, 6, 8, 10, 12],
+        "augmentation_step_weights": {
+            "2": 0.05,
+            "4": 0.10,
+            "5": 0.20,
+            "6": 0.10,
+            "8": 0.10,
+            "10": 0.15,
+            "12": 0.30
+        }
+    },
+    "training": {
+        "num_epochs": 180,
+        "learning_rate": 3e-4,
+        "physics_head_lr": 1e-3,
+        "physics_head_lr_ratio": 3.33,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0,
+        "use_stratified_sampler": true
+    },
+    "curriculum": {
+        "phase_1": {
+            "name": "velocity_pretrain",
+            "epochs": [1, 10],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave": 0.0,
+                "toa": 0.0,
+                "cs_map": 0.0,
+                "cs_mean": 0.0,
+                "sparse_start": 0.0,
+                "sparse_end": 0.1,
+                "envelope_start": 0.0,
+                "envelope_end": 0.2
+            },
+            "sparse_ramp_end_epoch": 10,
+            "envelope_ramp_end_epoch": 10,
+            "lr": 3e-4,
+            "warmup_epochs": 3,
+            "_note": "Phase 1: short velocity stabilisation (warm-started from V6). 10 epochs. No SWE losses."
+        },
+        "phase_2": {
+            "name": "physics_activation",
+            "epochs": [11, 120],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "sparse": 0.1,
+                "envelope": 0.2,
+                "wave_start": 0.0,
+                "wave_end": 0.05,
+                "toa_start": 0.0,
+                "toa_end": 0.5,
+                "cs_map": 0.3,
+                "cs_mean": 0.2
+            },
+            "wave_ramp_end_epoch": 50,
+            "toa_ramp_end_epoch": 50,
+            "lr": 3e-4,
+            "_note": "Phase 2: cs_map + cs_mean at FULL weight immediately (no ramp — head needs strong signal from start). ToA + wave ramp via cosine to epoch 50."
+        },
+        "phase_3": {
+            "name": "coupled_finetune",
+            "epochs": [121, 180],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave": 0.05,
+                "toa": 0.5,
+                "cs_map": 0.3,
+                "cs_mean": 0.2,
+                "sparse": 0.1,
+                "envelope": 0.2
+            },
+            "lr": 3e-5,
+            "lr_multiplier": 0.1,
+            "_note": "Phase 3: all weights stable, LR drops 10x for fine-tuning."
+        }
+    },
+    "physics": {
+        "dx_m": 1.013e-4,
+        "dy_m": 5.07e-5,
+        "rho_kg_m3": 1000.0
+    },
+    "loss": {
+        "amplitude_weighting": true,
+        "amplitude_weight_gamma": 1.0,
+        "amplitude_weight_bias": 0.01,
+        "toa_step": 5,
+        "toa_push_exclusion": 15,
+        "toa_loss_clamp": 3.0,
+        "softargmax_tau": 10.0,
+        "sparse_threshold": 0.05,
+        "_note": "Soft-argmax (tau=10) replaces parabolic ToA for full gradient flow. toa_loss_clamp=3.0 prevents extreme ToA from dominating."
+    },
+    "early_stopping": {
+        "patience": 40,
+        "min_delta": 1e-6
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "wavepinn_v7",
+        "output_dir": "outputs"
+    },
+    "seed": 42
+}

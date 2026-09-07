@@ -1,0 +1,93 @@
+{
+    "model": {
+        "name": "WavePINNv10b",
+        "in_channels": 1,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "d_model": 256,
+        "n_heads": 8,
+        "n_self_layers": 2,
+        "n_freq": 32,
+        "n_refine_iters": 2,
+        "dropout": 0.1,
+        "use_attention_skips": true,
+        "skip_attn_d_model": 128,
+        "skip_attn_heads": 4,
+        "skip_attn_n_freq": 32,
+        "skip_attn_dropout": 0.1
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 2,
+        "num_workers": 4,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true,
+        "enable_prf_augmentation": true,
+        "training_frequencies": ["500Hz", "5kHz", "10kHz", "20kHz"],
+        "_note_500hz_included": "500Hz is now in training so the model sees real 500Hz IQ statistics. Deployment is consecutive frames (step=1, dt=2ms), forced by frequency_step_overrides.",
+        "augmentation_steps": [2, 4, 5, 6, 8, 10, 12],
+        "augmentation_step_weights": {
+            "2":  0.05,
+            "4":  0.05,
+            "5":  0.10,
+            "6":  0.10,
+            "8":  0.10,
+            "10": 0.30,
+            "12": 0.30
+        },
+        "frequency_step_overrides": {
+            "_note": "Force step=1 for 500Hz data: dt = 1 × 0.002s = 2ms (consecutive frames). This exactly matches the deployment scenario. The GT is temporally resampled to the dense output grid. 5kHz/10kHz/20kHz use the normal augmentation_steps above.",
+            "500hz": [1]
+        }
+    },
+    "training": {
+        "num_epochs": 200,
+        "learning_rate": 2e-4,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0,
+        "use_stratified_sampler": true,
+        "warmup_epochs": 8,
+        "_note": "LR reduced from 3e-4 to 2e-4: 500Hz IQ has smaller gradient signals due to lower temporal coherence. Longer warmup (8 vs 5) for attention stability with mixed-PRF batches. 200 epochs total."
+    },
+    "loss": {
+        "l1_weight": 1.0,
+        "mse_weight": 1.0,
+        "gdl_weight": 0.3,
+        "temporal_weight": 0.5,
+        "use_mask": true,
+        "_note": "Temporal weight raised to 0.5 (from 0.3 in V10). SWE cs estimation depends entirely on temporal wavefront propagation. GDL and Temporal now correctly computed on masked volumes (V10 bug fix)."
+    },
+    "early_stopping": {
+        "monitor": "val_500hz_l1",
+        "patience": 50,
+        "min_delta": 1e-5,
+        "_note": "Monitor 500Hz val L1 directly (the deployment task). patience=50 because 500Hz loss converges more slowly as the model learns a new IQ statistics regime."
+    },
+    "verification_gates": {
+        "G1_epoch": 1,
+        "G1_output_std_min": 0.01,
+        "G2_epoch": 60,
+        "G2_val_pixel_loss_max": 0.12,
+        "G2_r_active_min": 0.15,
+        "_note_G2": "Looser G2 than V10: 500Hz has weaker signal (2 active frames vs ~25). r_active=0.15 at ep60 means the model has found the wave.",
+        "G3_epoch": 120,
+        "G3_val_pixel_loss_max": 0.08,
+        "G3_r_active_min": 0.25,
+        "G4_epoch": 200,
+        "G4_val_pixel_loss_max": 0.06,
+        "G4_r_active_min": 0.35
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "wavepinn_v10b",
+        "output_dir": "outputs"
+    },
+    "seed": 42
+}

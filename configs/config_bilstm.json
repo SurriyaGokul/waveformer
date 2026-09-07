@@ -1,0 +1,57 @@
+{
+    "data_dir": "data/CIRS_phantom_dataset",
+    "output_dir": "outputs",
+    "experiment_name": "pi_cv_recunet_bilstm_v2",
+    
+    "in_channels": 1,
+    "out_channels": 1,
+    "base_channels": 32,
+    "num_levels": 4,
+    "lstm_hidden_channels": 128,
+    "lstm_num_layers": 1,
+    "upsampling_factor": 20,
+    
+    "bilstm_combine_mode": "concat",
+    
+    "epochs": 50,
+    "batch_size": 8,
+    "learning_rate": 5e-4,
+    "weight_decay": 1e-5,
+    "gradient_clip": 50.0,
+    
+    "lr_scheduler": "cosine",
+    "lr_step_size": 30,
+    "lr_gamma": 0.5,
+    "lr_patience": 10,
+    "min_lr": 1e-7,
+    
+    "lambda_data": 1.0,
+    "lambda_physics": 0.0,
+    "lambda_physics_target": 0.1,
+    "lambda_smooth": 0.01,
+    "lambda_magnitude": 0.5,
+    "use_physics_loss": true,
+    "physics_warmup_epochs": 10,
+    "normalize_physics_loss": true,
+    "physics_lr_multiplier": 0.1,
+    
+    "sparse_frame_step": 20,
+    "normalization": "per_sample",
+    "train_ratio": 0.7,
+    "val_ratio": 0.15,
+    "test_ratio": 0.15,
+    "use_augmentation": false,
+    "num_workers": 4,
+    
+    "use_amp": true,
+    "accumulation_steps": 1,
+    
+    "save_every": 10,
+    "validate_every": 1,
+    "log_every": 10,
+    
+    "early_stopping": true,
+    "patience": 30,
+    
+    "seed": 42
+}

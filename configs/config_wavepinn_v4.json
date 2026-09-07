@@ -1,0 +1,117 @@
+{
+    "model": {
+        "name": "WavePINNv4",
+        "in_channels": 1,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "propagator_channels": 256,
+        "propagator_kernel": 3,
+        "dt_film_hidden": 64,
+        "wave_gate_hidden": 64
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 2,
+        "num_workers": 4,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true,
+        "enable_prf_augmentation": true,
+        "augmentation_steps": [2, 4, 5, 6, 8, 10, 12],
+        "augmentation_step_weights": {
+            "2": 0.05,
+            "4": 0.10,
+            "5": 0.20,
+            "6": 0.10,
+            "8": 0.10,
+            "10": 0.15,
+            "12": 0.30
+        }
+    },
+    "training": {
+        "num_epochs": 200,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 0.5,
+        "physics_lr_multiplier": 0.1,
+        "propagator_lr_multiplier": 3.0,
+        "gate_entropy_weight": 0.5
+    },
+    "curriculum": {
+        "phase_1": {
+            "name": "warmup",
+            "epochs": [1, 30],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 0.5,
+                "fg_l1": 3.0,
+                "gdl": 1.5,
+                "temporal": 0.5,
+                "ssim": 2.0,
+                "wave_start": 0.0,
+                "wave_end": 0.05
+            },
+            "lr": 3e-4,
+            "warmup_epochs": 3,
+            "_note": "Heavy fg_l1+SSIM+GDL prevents flat collapse. Short warmup."
+        },
+        "phase_2": {
+            "name": "main",
+            "epochs": [31, 150],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 0.5,
+                "fg_l1": 2.0,
+                "gdl": 1.0,
+                "temporal": 0.5,
+                "ssim": 1.5,
+                "wave_start": 0.05,
+                "wave_end": 0.15
+            },
+            "lr": 2e-4,
+            "_note": "Balanced training with gradual wave physics. fg_l1 keeps wave pixels alive."
+        },
+        "phase_3": {
+            "name": "finetune",
+            "epochs": [151, 200],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "fg_l1": 1.0,
+                "gdl": 0.5,
+                "temporal": 0.3,
+                "ssim": 0.5,
+                "wave": 0.2
+            },
+            "lr": 1e-5,
+            "_note": "Lower LR, higher physics weight for fine-tuning."
+        }
+    },
+    "physics": {
+        "init_cs": 3.0,
+        "dx_m": 1.013e-4,
+        "dy_m": 5.07e-5
+    },
+    "scheduler": {
+        "type": "CosineAnnealingWarmRestarts",
+        "T_0": 50,
+        "T_mult": 2,
+        "eta_min": 1e-6
+    },
+    "early_stopping": {
+        "patience": 40,
+        "min_delta": 1e-6
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "wavepinn_v4",
+        "output_dir": "outputs"
+    },
+    "seed": 42
+}

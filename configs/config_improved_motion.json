@@ -1,0 +1,70 @@
+{
+  "experiment_name": "improved_motion_aware_v1",
+  "data_dir": "data/CIRS_phantom_dataset",
+  "output_dir": "outputs",
+  
+  "in_channels": 1,
+  "out_channels": 1,
+  "base_channels": 32,
+  "num_levels": 4,
+  "lstm_hidden_channels": 128,
+  "lstm_num_layers": 1,
+  "upsampling_factor": 20,
+  
+  "flow_hidden_channels": 64,
+  "flow_scale": 0.5,
+  "use_residual_fusion": true,
+  "flow_upsample_factor": 4,
+  
+  "use_flow_losses": true,
+  "use_flow_consistency_loss": true,
+  "use_photometric_loss": true,
+  "use_flow_smoothness_loss": true,
+  "lambda_flow_consistency": 0.001,
+  "lambda_photometric": 0.001,
+  "lambda_flow_smoothness": 0.0005,
+  "flow_loss_warmup_epochs": 10,
+  
+  "epochs": 100,
+  "batch_size": 2,
+  "learning_rate": 5e-4,
+  "weight_decay": 1e-5,
+  "gradient_clip": 50.0,
+  
+  "lr_scheduler": "cosine",
+  "lr_step_size": 30,
+  "lr_gamma": 0.5,
+  "lr_patience": 10,
+  "min_lr": 1e-7,
+  
+  "lambda_data": 1.0,
+  "lambda_physics": 0.0,
+  "lambda_physics_target": 0.1,
+  "lambda_smooth": 0.01,
+  "lambda_magnitude": 0.5,
+  "use_physics_loss": true,
+  "physics_warmup_epochs": 10,
+  "normalize_physics_loss": true,
+  "physics_lr_multiplier": 0.1,
+  
+  "sparse_frame_step": 20,
+  "normalization": "per_sample",
+  "train_ratio": 0.7,
+  "val_ratio": 0.15,
+  "test_ratio": 0.15,
+  "use_augmentation": false,
+  "num_workers": 4,
+  
+  "use_amp": true,
+  "accumulation_steps": 1,
+  
+  "save_every": 10,
+  "validate_every": 1,
+  "log_every": 10,
+  
+  "early_stopping": true,
+  "patience": 20,
+  
+  "device": "cuda",
+  "seed": 42
+}

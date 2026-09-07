@@ -1,0 +1,149 @@
+{
+    "model": {
+        "name": "WavePINNv9",
+        "in_channels": 1,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "d_model": 256,
+        "n_heads": 8,
+        "n_self_layers": 2,
+        "n_freq": 32,
+        "n_refine_iters": 2,
+        "dropout": 0.1,
+        "use_attention_skips": true,
+        "skip_attn_d_model": 128,
+        "skip_attn_heads": 4,
+        "skip_attn_n_freq": 32,
+        "skip_attn_dropout": 0.1,
+        "cs_min": 0.3,
+        "cs_max": 8.0,
+        "cs_init": 2.54
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 2,
+        "num_workers": 4,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true,
+        "enable_prf_augmentation": true,
+        "augmentation_steps": [2, 4, 5, 6, 8, 10, 12],
+        "augmentation_step_weights": {
+            "2": 0.05,
+            "4": 0.10,
+            "5": 0.20,
+            "6": 0.10,
+            "8": 0.10,
+            "10": 0.15,
+            "12": 0.30
+        },
+        "training_frequencies": ["5kHz", "10kHz", "20kHz"],
+        "_note": "Exclude 500 Hz native-rate training data. Their sparse gap (24 ms) is 12x different from the deployment task (2 ms). Training on 5/10/20 kHz (154 samples) directly matches the deployment scale."
+    },
+    "training": {
+        "num_epochs": 180,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0,
+        "use_stratified_sampler": true,
+        "warmup_epochs": 3,
+        "_note": "Cold start. Single optimizer param group (no separate physics head LR). Warmup covers first 3 epochs."
+    },
+    "curriculum": {
+        "phase_1": {
+            "name": "velocity_pretrain",
+            "epochs": [1, 60],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave": 0.0,
+                "cs": 0.01,
+                "cons": 0.0
+            },
+            "detach_head": true,
+            "lr": 3e-4,
+            "_note": "Phase 1: 60 epochs velocity reconstruction + head warm-up. cs=0.01 gives the ScalarCsHead a gradient signal from detached features so it learns to discriminate phantoms before Phase 2. The backbone sees zero Cs gradient (detach_head=True). Wave stays 0 so WaveCoherence (which needs decent velocity first) does not fire."
+        },
+        "phase_2": {
+            "name": "physics_activation",
+            "epochs": [61, 120],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave_start": 0.0,
+                "wave_end": 0.05,
+                "cs_start": 0.0,
+                "cs_end": 0.2,
+                "cons": 0.0
+            },
+            "wave_ramp_end_epoch": 90,
+            "cs_ramp_end_epoch": 90,
+            "detach_head": false,
+            "lr": 3e-4,
+            "_note": "Phase 2: cosine ramp wave and cs weights over 30 epochs (61→90), then stable at final values. Head gradients now flow to backbone. Monitor val_pixel_loss: if it regresses >20% from phase-1 end, halve ramp targets."
+        },
+        "phase_3": {
+            "name": "coupled_finetune",
+            "epochs": [121, 180],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave": 0.05,
+                "cs": 0.2,
+                "cons_start": 0.0,
+                "cons_end": 0.1
+            },
+            "cons_ramp_end_epoch": 140,
+            "detach_head": false,
+            "lr": 3e-5,
+            "lr_multiplier": 0.1,
+            "_note": "Phase 3: LR drops 10x. Consistency ramp (head<->wave-cs) over epochs 121→140 for final coupling."
+        }
+    },
+    "physics": {
+        "dx_m": 1.013e-4,
+        "dy_m": 5.07e-5,
+        "rho_kg_m3": 1000.0,
+        "cs_learn_init": 3.0
+    },
+    "loss": {
+        "amplitude_weighting": false,
+        "use_mask": true,
+        "_note": "No amplitude weighting (V2 recipe is proven). No ToA loss (RC2: caused phase-2 divergence). No spatial Cs map (RC3: scalar supervision on scalar head). WaveCoherence is scale-free Pearson from V5/V6."
+    },
+    "early_stopping": {
+        "monitor": "val_pixel_loss_5khz",
+        "patience": 60,
+        "min_delta": 1e-5,
+        "reset_best_on_phase_transition": true,
+        "_note": "patience=60 ensures we survive all of Phase 2 (60 epochs) even when physics activation temporarily raises val L1. reset_best_on_phase_transition=true re-anchors the ES baseline at each phase boundary so Phase 2's inherently higher loss does not count against the Phase 1 best."
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "wavepinn_v9",
+        "output_dir": "outputs"
+    },
+    "verification_gates": {
+        "G1_init_cs_mean_target": 2.54,
+        "G1_init_cs_tolerance": 0.1,
+        "G2_phase1_end_val_pixel_loss_max": 0.06,
+        "G3_phase2_pixel_regression_max_fraction": 0.20,
+        "G4_phase2_end_cs_mae_max": 0.25,
+        "G5_phase3_end_cs_mae_max": 0.15,
+        "G5_phase3_end_val_pixel_loss_max": 0.06,
+        "G6_deployment_cs_mae_max": 0.30
+    },
+    "seed": 42
+}

@@ -1,0 +1,107 @@
+{
+    "model": {
+        "name": "WavePINNv6",
+        "in_channels": 1,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "d_model": 256,
+        "n_heads": 8,
+        "n_self_layers": 2,
+        "n_freq": 32,
+        "n_refine_iters": 2,
+        "dropout": 0.1,
+        "use_attention_skips": true,
+        "skip_attn_d_model": 128,
+        "skip_attn_heads": 4,
+        "skip_attn_n_freq": 32,
+        "skip_attn_dropout": 0.1
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 2,
+        "num_workers": 4,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true,
+        "enable_prf_augmentation": true,
+        "augmentation_steps": [2, 4, 5, 6, 8, 10, 12],
+        "augmentation_step_weights": {
+            "2": 0.05,
+            "4": 0.10,
+            "5": 0.20,
+            "6": 0.10,
+            "8": 0.10,
+            "10": 0.15,
+            "12": 0.30
+        }
+    },
+    "training": {
+        "num_epochs": 200,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0
+    },
+    "curriculum": {
+        "phase_1": {
+            "name": "main",
+            "epochs": [1, 150],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave_start": 0.0,
+                "wave_end": 0.05
+            },
+            "lr": 3e-4,
+            "warmup_epochs": 5,
+            "wave_ramp_end_epoch": 30,
+            "_note": "Wave coherence cosine-ramps 0 -> 0.05 by epoch 30, then plateaus through epoch 150 (front-loaded so physics signal arrives before the model commits to a linear-interp local minimum)"
+        },
+        "phase_2": {
+            "name": "finetune",
+            "epochs": [151, 200],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave": 0.1
+            },
+            "lr": 1e-5,
+            "_note": "Lower LR fine-tuning with higher wave coherence weight"
+        }
+    },
+    "physics": {
+        "dx_m": 1.013e-4,
+        "dy_m": 5.07e-5
+    },
+    "loss": {
+        "amplitude_weighting": true,
+        "amplitude_weight_gamma": 1.0,
+        "amplitude_weight_bias": 0.05,
+        "_note": "Magnitude-weighted L1+MSE: pixel weight = (|target|+bias)^gamma, normalised so masked-mean weight = 1.0. Background pixels keep small weight via bias; wave-active pixels dominate gradient. Fixes plateau where model collapsed to zero predictor."
+    },
+    "scheduler": {
+        "type": "CosineAnnealingWarmRestarts",
+        "T_0": 50,
+        "T_mult": 2,
+        "eta_min": 1e-6
+    },
+    "early_stopping": {
+        "patience": 40,
+        "min_delta": 1e-6
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "wavepinn_v6",
+        "output_dir": "outputs"
+    },
+    "seed": 42
+}

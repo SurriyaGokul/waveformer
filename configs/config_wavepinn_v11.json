@@ -1,0 +1,154 @@
+{
+    "model": {
+        "name": "WavePINNv11",
+        "in_channels": 1,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "d_model": 256,
+        "n_heads": 8,
+        "n_self_layers": 2,
+        "n_freq": 32,
+        "n_refine_iters": 2,
+        "dropout": 0.1,
+        "use_attention_skips": true,
+        "skip_attn_d_model": 128,
+        "skip_attn_heads": 4,
+        "skip_attn_n_freq": 32,
+        "skip_attn_dropout": 0.1,
+        "cs_min": 0.3,
+        "cs_max": 8.0,
+        "cs_init": 2.54,
+        "use_spectral_calibrator": true,
+        "spectral_hidden_channels": 64,
+        "spectral_num_modes_height": 6,
+        "spectral_num_modes_width": 6,
+        "spectral_num_layers": 2,
+        "spectral_use_batchnorm": true,
+        "spectral_fft_padding": 0,
+        "spectral_dropout": 0.05,
+        "spectral_gate_init": 0.02,
+        "spectral_max_gate": 0.35,
+        "_note": "v11 keeps v9 behavior as baseline and adds a bounded spectral residual adapter at bottleneck; small gate init prevents destabilization."
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 2,
+        "num_workers": 4,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true,
+        "enable_prf_augmentation": true,
+        "augmentation_steps": [2, 4, 5, 6, 8, 10, 12],
+        "augmentation_step_weights": {
+            "2": 0.05,
+            "4": 0.10,
+            "5": 0.20,
+            "6": 0.10,
+            "8": 0.10,
+            "10": 0.15,
+            "12": 0.30
+        },
+        "training_frequencies": ["5kHz", "10kHz", "20kHz"],
+        "_note": "Exclude native 500 Hz training clips; train on 5/10/20 kHz and deploy on 500 Hz."
+    },
+    "training": {
+        "num_epochs": 180,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0,
+        "use_stratified_sampler": true,
+        "warmup_epochs": 3
+    },
+    "curriculum": {
+        "phase_1": {
+            "name": "velocity_pretrain",
+            "epochs": [1, 60],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave": 0.0,
+                "cs": 0.01,
+                "cons": 0.0
+            },
+            "detach_head": true,
+            "lr": 3e-4
+        },
+        "phase_2": {
+            "name": "physics_activation",
+            "epochs": [61, 120],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave_start": 0.0,
+                "wave_end": 0.05,
+                "cs_start": 0.0,
+                "cs_end": 0.2,
+                "cons": 0.0
+            },
+            "wave_ramp_end_epoch": 90,
+            "cs_ramp_end_epoch": 90,
+            "detach_head": false,
+            "lr": 3e-4
+        },
+        "phase_3": {
+            "name": "coupled_finetune",
+            "epochs": [121, 180],
+            "loss_weights": {
+                "l1": 1.0,
+                "mse": 1.0,
+                "gdl": 0.3,
+                "temporal": 0.15,
+                "wave": 0.05,
+                "cs": 0.2,
+                "cons_start": 0.0,
+                "cons_end": 0.1
+            },
+            "cons_ramp_end_epoch": 140,
+            "detach_head": false,
+            "lr": 3e-5,
+            "lr_multiplier": 0.1
+        }
+    },
+    "physics": {
+        "dx_m": 1.013e-4,
+        "dy_m": 5.07e-5,
+        "rho_kg_m3": 1000.0,
+        "cs_learn_init": 3.0
+    },
+    "loss": {
+        "amplitude_weighting": false,
+        "use_mask": true
+    },
+    "early_stopping": {
+        "monitor": "val_pixel_loss_5khz",
+        "patience": 60,
+        "min_delta": 1e-5,
+        "reset_best_on_phase_transition": true
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "wavepinn_v11",
+        "output_dir": "outputs"
+    },
+    "verification_gates": {
+        "G1_init_cs_mean_target": 2.54,
+        "G1_init_cs_tolerance": 0.1,
+        "G2_phase1_end_val_pixel_loss_max": 0.06,
+        "G3_phase2_pixel_regression_max_fraction": 0.20,
+        "G4_phase2_end_cs_mae_max": 0.25,
+        "G5_phase3_end_cs_mae_max": 0.15,
+        "G5_phase3_end_val_pixel_loss_max": 0.06,
+        "G6_deployment_cs_mae_max": 0.30
+    },
+    "seed": 42
+}

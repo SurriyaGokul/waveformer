@@ -1,0 +1,89 @@
+{
+    "model": {
+        "name": "WavePINNv10",
+        "in_channels": 1,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "d_model": 256,
+        "n_heads": 8,
+        "n_self_layers": 2,
+        "n_freq": 32,
+        "n_refine_iters": 2,
+        "dropout": 0.1,
+        "use_attention_skips": true,
+        "skip_attn_d_model": 128,
+        "skip_attn_heads": 4,
+        "skip_attn_n_freq": 32,
+        "skip_attn_dropout": 0.1
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 2,
+        "num_workers": 4,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true,
+        "enable_prf_augmentation": true,
+        "augmentation_steps": [2, 4, 5, 6, 8, 10, 12],
+        "augmentation_step_weights": {
+            "2":  0.05,
+            "4":  0.05,
+            "5":  0.10,
+            "6":  0.10,
+            "8":  0.10,
+            "10": 0.30,
+            "12": 0.30
+        },
+        "training_frequencies": ["5kHz", "10kHz", "20kHz"],
+        "_note_freq": "Exclude 500Hz native-rate data. sparse_gap=24ms is 12x different from deployment gap=2ms. Training on 5/10/20kHz (154 samples) directly matches deployment scale (2-2.4ms sparse gap).",
+        "_note_step10": "step=10 from 5kHz data: dt = 10 * 0.0002 = 0.002s = 2ms — exactly the 500Hz consecutive deployment condition. Weight doubled from V9's 0.15 to 0.30."
+    },
+    "training": {
+        "num_epochs": 180,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0,
+        "use_stratified_sampler": true,
+        "warmup_epochs": 5,
+        "_note": "Single phase, 180 epochs, cosine LR over the full run. No phase transitions, no curriculum. 5-epoch warmup (longer than V9's 3-epoch for attention layer stability)."
+    },
+    "loss": {
+        "l1_weight": 1.0,
+        "mse_weight": 1.0,
+        "gdl_weight": 0.3,
+        "temporal_weight": 0.3,
+        "use_mask": true,
+        "_note": "Pure pixel loss. Temporal weight raised 0.15->0.30 vs V9. No wave coherence (collapsed V9 at ep72). No Cs loss (no head). No amplitude weighting (V2-proven unweighted recipe)."
+    },
+    "early_stopping": {
+        "monitor": "val_pixel_loss",
+        "patience": 40,
+        "min_delta": 1e-5,
+        "_note": "Monitor total val pixel loss (all frequencies). Patience=40 allows full convergence without overfitting."
+    },
+    "verification_gates": {
+        "G1_epoch": 1,
+        "G1_output_std_min": 0.01,
+        "G2_epoch": 60,
+        "G2_val_pixel_loss_max": 0.06,
+        "G2_r_active_min": 0.30,
+        "G3_epoch": 120,
+        "G3_val_pixel_loss_max": 0.05,
+        "G3_r_active_min": 0.35,
+        "G4_epoch": 180,
+        "G4_val_pixel_loss_max": 0.045,
+        "G4_r_active_min": 0.40
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "wavepinn_v10",
+        "output_dir": "outputs"
+    },
+    "seed": 42
+}

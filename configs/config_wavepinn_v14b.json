@@ -1,0 +1,111 @@
+{
+    "model": {
+        "name": "WavePINNv14b",
+        "in_channels": 1,
+        "encoder_depths": [
+            32,
+            64,
+            128,
+            256
+        ],
+        "upsampling_factor": 12,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "d_model": 256,
+        "n_heads": 8,
+        "n_self_layers": 2,
+        "n_freq": 32,
+        "n_refine_iters": 2,
+        "dropout": 0.1,
+        "use_attention_skips": true,
+        "skip_attn_d_model": 128,
+        "skip_attn_heads": 4,
+        "skip_attn_n_freq": 32,
+        "skip_attn_dropout": 0.1,
+        "_note": "Architecture identical to v12 \u2014 v14 changes supervision, model selection and loss only, so the comparison isolates those."
+    },
+    "data": {
+        "data_dir": "data/fullscale_velocity",
+        "batch_size": 4,
+        "num_workers": 6,
+        "per_sample_iq_norm": true,
+        "per_sample_vel_norm": true,
+        "enable_prf_augmentation": true,
+        "training_frequencies": [
+            "500Hz",
+            "5kHz",
+            "10kHz",
+            "20kHz"
+        ],
+        "strict_iq": true,
+        "_note_strict_iq": "A configured PRF step that cannot be honoured now drops the sample at construction instead of silently reverting to the native step. 38/154 500Hz train samples lack raw IQ on disk and were previously training at dt_in=24ms instead of 2ms with nothing in the logs to say so.",
+        "augmentation_steps": [
+            12
+        ],
+        "augmentation_step_weights": {
+            "12": 1.0
+        },
+        "_note_augmentation": "v12/v13 declared steps [2,4,5,6,8,10,12] but raw IQ for every 5/10/20kHz sample is absent in this environment, so _load_augmented_iq always failed and fell back to native step 12. The declared augmentation never happened. Declaring [12] makes the real behaviour explicit; with strict_iq on, anything else would now be a hard error rather than a silent lie.",
+        "frequency_step_overrides": {
+            "_note": "500Hz still forced to step=1 (dt=2ms, consecutive frames) \u2014 the deployment scenario.",
+            "500hz": [
+                1
+            ]
+        }
+    },
+    "training": {
+        "num_epochs": 200,
+        "learning_rate": 0.0002,
+        "weight_decay": 1e-05,
+        "betas": [
+            0.9,
+            0.999
+        ],
+        "gradient_accumulation_steps": 2,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0,
+        "use_stratified_sampler": true,
+        "warmup_epochs": 8
+    },
+    "loss": {
+        "l1_weight": 1.0,
+        "mse_weight": 1.0,
+        "gdl_weight": 0.3,
+        "temporal_weight": 0.5,
+        "use_mask": true,
+        "use_frame_mask": true,
+        "spectral_weight": 0.2,
+        "_note_frame_mask": "C1: supervise interpolated targets only at frames where ground truth genuinely exists. For 500Hz samples the dense target is a linear interpolation of the same 5 input frames, so 44 of 49 target frames carried no information and actively rewarded piecewise-linear output.",
+        "spectral_f_lo": 250.0,
+        "spectral_f_hi": 1500.0,
+        "spectral_hf_weight": 2.0,
+        "_note_spectral": "C2: log-magnitude L1 between predicted and ground-truth temporal spectra, frequency-weighted 1->2 across 250-1500 Hz, applied ONLY to samples with fully genuine dense ground truth. Targets the measured deficit: v12 reconstructs HF phase well (band coherence 0.73) but carries only ~46% of the true HF energy."
+    },
+    "early_stopping": {
+        "monitor": "val_5khz_l1",
+        "patience": 50,
+        "min_delta": 1e-05,
+        "_note": "v12 selected on val_500hz_l1 = L1 against that same linear interpolation, so checkpoint selection preferred the most interpolation-like model. 5kHz val is native step 12: dt_out == dt_native, genuine dense ground truth, frame for frame."
+    },
+    "verification_gates": {
+        "G1_epoch": 1,
+        "G1_output_std_min": 0.01,
+        "G2_epoch": 60,
+        "G2_val_pixel_loss_max": 0.12,
+        "G2_r_active_min": 0.15,
+        "G3_epoch": 120,
+        "G3_val_pixel_loss_max": 0.08,
+        "G3_r_active_min": 0.25,
+        "G4_epoch": 200,
+        "G4_val_pixel_loss_max": 0.06,
+        "G4_r_active_min": 0.35
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "wavepinn_v14b",
+        "output_dir": "outputs"
+    },
+    "seed": 42
+}

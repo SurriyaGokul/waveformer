@@ -1,0 +1,77 @@
+# WaveFormer — Physics-Informed Temporal Super-Resolution for Shear-Wave Elastography
+
+Deep-learning pipeline that reconstructs high-frame-rate (up to ~10–20 kHz) tissue
+velocity fields from low-pulse-repetition-frequency (as low as 500 Hz) ultrasound IQ
+acquisitions, for shear-wave elastography (SWE). The reconstructed velocity fields are
+used downstream to estimate shear-wave speed (cs) and viscoelastic tissue properties
+(shear storage/loss modulus G′/η) via dispersion analysis.
+
+The core model family is **WavePINN** — complex-valued spatio-temporal attention
+networks trained on paired (sparse IQ, dense Loupas-estimated velocity) samples from
+CIRS and PVA tissue-mimicking phantom and ex-vivo (goat heart) acquisitions. The
+production model is **WavePINN v10b** (`src/architectures/wavepinn_v6.py` backbone).
+
+> **This repository is code-only.** Raw/preprocessed data, trained checkpoints, and
+> training run outputs (~60 GB total) are not committed — see [`DATA.md`](DATA.md) for
+> what exists locally and how to regenerate it.
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| [`src/`](src/README.md) | Core library: model architectures, training loops, losses, evaluation & analysis utilities |
+| [`scripts/`](scripts/README.md) | 98 standalone CLI scripts: preprocessing, prediction, evaluation, diagnosis, SWE/dispersion analysis, visualization |
+| [`configs/`](configs/README.md) | JSON training configs, one per model/experiment |
+| [`matlab/`](matlab/README.md) | Reference MATLAB script for the pre-Python (Verasonics) acquisition/velocity pipeline |
+| [`reports/`](reports/README.md) | Detailed write-ups: dispersion post-processing pipeline, elastography audit |
+| [`docs/`](docs/README.md) | Design/task planning docs (the "why" behind version jumps) |
+| [`DATA.md`](DATA.md) | What data/weights exist locally, their sizes, and how to regenerate them |
+
+## Setup
+
+```bash
+python -m venv .venv && source .venv/bin/activate   # or your preferred env manager
+pip install -r requirements.txt
+```
+
+Developed against Python 3.12, PyTorch 2.8 (CUDA 12.8), PyTorch Lightning 2.6.
+
+## Typical workflow
+
+1. **Preprocess** a raw acquisition set into `data/` — see the matching
+   `scripts/preprocess_*.py` (e.g. `preprocess_1ft.py`, `preprocess_goat_heart.py`).
+2. **Train** a model — e.g. the production model:
+   ```bash
+   python -m src.training.train_wavepinn_v10b --config configs/config_wavepinn_v10b.json
+   ```
+3. **Predict** on held-out/deployment IQ — e.g.
+   ```bash
+   python scripts/predict_6khz_from_500hz_v10b.py --model_path <checkpoint> --output_dir outputs/my_run
+   ```
+4. **Evaluate / analyze** — `scripts/evaluate_wavepinn_v10.py` for deployment metrics
+   (r_active, MAE, cs MAE vs GT), `scripts/swe_publication_v10b.py` for the full
+   SWE (shear-wave-speed) publication figure/table set.
+
+Every script accepts `--help` for its exact arguments and defaults.
+
+## Git LFS
+
+This repo has Git LFS configured (`.gitattributes`) for common large binary types
+(`*.pt`, `*.npy`, `*.mat`, `*.h5`, …), so model weights or data samples can be added
+later without further setup — see [`DATA.md`](DATA.md) for the size/cost tradeoffs
+before doing so (GitHub's free LFS quota is 1 GB storage / 1 GB bandwidth per month).
+
+## Known caveats (read before trusting reported numbers)
+
+- **Viscoelastic (G′/η) estimates from before 2026-08-24** used a Voigt estimator with
+  a wavenumber bug (missing factor of 2π) — those numbers are artifacts and should be
+  regenerated with the current `src/analysis/dispersion.py`.
+- **Ground-truth η near zero**: because acquisition records start at the push (no
+  pre-push baseline), fitted η is dominated by an onset-truncation artifact — treat
+  "true" η as ≈ 0 rather than the fitted value.
+- **Dispersion aperture limit**: the current 16 mm ROI makes G′ only weakly
+  identifiable from the dispersion fit (η is well identified; G′ is not) — see
+  `reports/SWE_dispersion_postprocessing_pipeline.md`.
+- **High-frequency amplitude**: v12-line models get the high-frequency *phase* right
+  but only ~46% of the HF *energy*; use band coherence to assess HF quality, not a raw
+  power ratio.

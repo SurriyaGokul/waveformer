@@ -1,0 +1,62 @@
+{
+    "model": {
+        "name": "ComplexToRealUNet",
+        "in_channels": 1,
+        "base_channels": 32,
+        "encoder_depths": [32, 64, 128, 256],
+        "upsampling_factor": 12,
+        "use_motion_interpolation": true,
+        "complex_to_real_mode": "concat",
+        "use_naive_bn": true,
+        "flow_hidden_channels": 32,
+        "flow_scale": 0.1,
+        "use_prf_conditioning": true,
+        "prf_hidden_dim": 64
+    },
+    "data": {
+        "data_dir": "data/phantom_velocity_multi_prf",
+        "batch_size": 2,
+        "num_workers": 4,
+        "iq_norm_scalar": null,
+        "vel_norm_scalar": null,
+        "spatial_multiple": 16
+    },
+    "training": {
+        "num_epochs": 200,
+        "learning_rate": 5e-5,
+        "weight_decay": 1e-5,
+        "betas": [0.9, 0.999],
+        "warmup_epochs": 10,
+        "gradient_accumulation_steps": 4,
+        "effective_batch_size": 8,
+        "use_amp": true,
+        "max_grad_norm": 1.0
+    },
+    "loss": {
+        "l1_weight": 1.0,
+        "mse_weight": 0.5,
+        "gdl_weight": 0.3,
+        "temporal_weight": 0.2,
+        "ssim_weight": 0.3,
+        "wave_weight": 0.05,
+        "mask_weight": true,
+        "use_enhanced_loss": true
+    },
+    "scheduler": {
+        "type": "CosineAnnealingWarmRestarts",
+        "T_0": 50,
+        "T_mult": 2,
+        "eta_min": 1e-6
+    },
+    "early_stopping": {
+        "patience": 40,
+        "min_delta": 1e-5
+    },
+    "logging": {
+        "log_interval": 5,
+        "save_interval": 10,
+        "experiment_name": "iq_to_velocity_multi_prf",
+        "output_dir": "outputs"
+    },
+    "seed": 42
+}

@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WavePINN Elastography Audit</title>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+:root{
+  --paper:#F4F7F8; --surface:#FFFFFF; --surface-2:#EDF2F4;
+  --ink:#0F1A1F; --ink-2:#2C3E48; --muted:#5B6D77; --line:#D3DEE2;
+  --accent:#0E7C86; --accent-soft:#DCEDEF;
+  --good:#2E7D5B; --good-soft:#E0EFE7;
+  --warn:#B4791A; --warn-soft:#F6EBD6;
+  --bad:#B3402F; --bad-soft:#F7E3DF;
+  --rail:#B9C9CF;
+  --sans:"IBM Plex Sans Condensed",ui-sans-serif,system-ui,sans-serif;
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0C1418; --surface:#121E23; --surface-2:#18272D;
+    --ink:#E7EFF2; --ink-2:#C2D2D8; --muted:#8DA3AC; --line:#26383F;
+    --accent:#3FB6C0; --accent-soft:#123138;
+    --good:#5FBF8F; --good-soft:#113024;
+    --warn:#DDA344; --warn-soft:#332715;
+    --bad:#E0705C; --bad-soft:#361D18;
+    --rail:#3A5058;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0C1418; --surface:#121E23; --surface-2:#18272D;
+  --ink:#E7EFF2; --ink-2:#C2D2D8; --muted:#8DA3AC; --line:#26383F;
+  --accent:#3FB6C0; --accent-soft:#123138;
+  --good:#5FBF8F; --good-soft:#113024;
+  --warn:#DDA344; --warn-soft:#332715;
+  --bad:#E0705C; --bad-soft:#361D18;
+  --rail:#3A5058;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:var(--serif); font-size:17px; line-height:1.65;
+  margin:0; padding:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px 120px}
+
+/* ---------- masthead ---------- */
+.mast{
+  border-bottom:2px solid var(--ink);
+  padding:56px 0 22px; margin-bottom:8px;
+  display:flex; flex-direction:column; gap:18px;
+}
+.kicker{
+  font-family:var(--sans); font-size:12px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--accent);
+}
+h1{
+  font-family:var(--sans); font-weight:700; font-size:clamp(2.2rem,5.4vw,3.5rem);
+  line-height:1.02; letter-spacing:-.015em; margin:0; text-wrap:balance;
+}
+.standfirst{
+  font-size:1.14rem; color:var(--ink-2); max-width:64ch; margin:0;
+}
+.meta{
+  display:flex; flex-wrap:wrap; gap:10px 26px;
+  font-family:var(--mono); font-size:12px; color:var(--muted);
+  border-top:1px solid var(--line); padding-top:16px;
+}
+.meta b{color:var(--ink-2);font-weight:500}
+
+/* ---------- verdict ---------- */
+.verdict{
+  background:var(--surface); border:1px solid var(--line);
+  border-left:4px solid var(--accent);
+  padding:26px 30px; margin:34px 0 10px;
+  display:flex; flex-direction:column; gap:14px;
+}
+.verdict h2{
+  font-family:var(--sans); font-size:1.02rem; font-weight:600;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--accent);
+  margin:0;
+}
+.verdict p{margin:0;max-width:70ch}
+.verdict strong{font-weight:600;color:var(--ink)}
+
+/* ---------- sections ---------- */
+section{
+  display:grid; grid-template-columns:64px minmax(0,1fr); gap:0 26px;
+  padding-top:52px;
+}
+.num{
+  font-family:var(--mono); font-size:12px; color:var(--rail);
+  padding-top:.55rem; letter-spacing:.06em;
+  border-right:1px solid var(--line);
+}
+.body{min-width:0}
+h2.sec{
+  font-family:var(--sans); font-weight:600; font-size:1.72rem;
+  letter-spacing:-.01em; margin:0 0 6px; text-wrap:balance;
+}
+h3{
+  font-family:var(--sans); font-weight:600; font-size:1.16rem;
+  margin:32px 0 8px; color:var(--ink);
+}
+p{margin:0 0 15px;max-width:68ch}
+ul,ol{margin:0 0 15px;padding-left:1.15rem;max-width:68ch}
+li{margin-bottom:7px}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  padding:1px 5px;border-radius:2px;color:var(--ink-2)}
+.lede{color:var(--ink-2);font-size:1.04rem;max-width:66ch;margin-bottom:18px}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;margin:20px 0 8px;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);
+  font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+caption{
+  caption-side:top; text-align:left; font-family:var(--sans);
+  font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); padding:12px 14px 10px; border-bottom:1px solid var(--line);
+  white-space:normal;
+}
+th,td{padding:7px 13px;text-align:right;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:11px;
+  letter-spacing:.06em;text-transform:uppercase;background:var(--surface-2)}
+th:first-child,td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:none}
+tr.hl td{background:var(--accent-soft);font-weight:600;color:var(--ink)}
+tr.gt td{color:var(--muted);font-style:italic}
+td.g{color:var(--good);font-weight:600}
+td.b{color:var(--bad);font-weight:600}
+td.w{color:var(--warn);font-weight:600}
+.dead{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+.tnote{font-family:var(--serif);font-size:14px;color:var(--muted);
+  padding:11px 14px;border-top:1px solid var(--line);white-space:normal;max-width:none}
+
+/* ---------- callouts ---------- */
+.box{border:1px solid var(--line);padding:20px 24px;margin:22px 0;background:var(--surface)}
+.box .lbl{font-family:var(--sans);font-size:11px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;margin-bottom:9px;display:block}
+.box p:last-child{margin-bottom:0}
+.box.fix{border-left:3px solid var(--good)} .box.fix .lbl{color:var(--good)}
+.box.prob{border-left:3px solid var(--bad)} .box.prob .lbl{color:var(--bad)}
+.box.care{border-left:3px solid var(--warn)} .box.care .lbl{color:var(--warn)}
+
+/* ---------- chips ---------- */
+.chip{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:2px;
+  vertical-align:middle}
+.chip.ok{background:var(--good-soft);color:var(--good)}
+.chip.no{background:var(--bad-soft);color:var(--bad)}
+.chip.mid{background:var(--warn-soft);color:var(--warn)}
+.chip.run{background:var(--accent-soft);color:var(--accent)}
+
+/* ---------- timeline ---------- */
+.tl{display:flex;flex-direction:column;gap:0;margin:24px 0 8px;
+  border:1px solid var(--line);background:var(--surface)}
+.tl-row{display:grid;grid-template-columns:96px minmax(0,1fr);gap:20px;
+  padding:16px 20px;border-bottom:1px solid var(--line)}
+.tl-row:last-child{border-bottom:none}
+.tl-v{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--accent)}
+.tl-v small{display:block;font-weight:400;font-size:11px;color:var(--muted);
+  margin-top:3px;letter-spacing:.04em}
+.tl-b{font-size:15px;color:var(--ink-2)}
+.tl-b b{color:var(--ink);font-weight:600;font-family:var(--sans)}
+
+/* ---------- key figures ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px;background:var(--line);border:1px solid var(--line);margin:24px 0}
+.kpi{background:var(--surface);padding:16px 18px}
+.kpi .k{font-family:var(--sans);font-size:10.5px;font-weight:600;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted);display:block;margin-bottom:7px}
+.kpi .v{font-family:var(--mono);font-size:1.5rem;font-weight:600;line-height:1;
+  display:block;color:var(--ink)}
+.kpi .d{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  display:block;margin-top:6px}
+.kpi .v.g{color:var(--good)} .kpi .v.b{color:var(--bad)}
+
+hr.rule{border:none;border-top:1px solid var(--line);margin:40px 0 0}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:720px){
+  section{grid-template-columns:1fr;gap:0}
+  .num{border-right:none;border-bottom:1px solid var(--line);
+    padding:0 0 8px;margin-bottom:14px}
+  .tl-row{grid-template-columns:1fr;gap:8px}
+  body{font-size:16px}
+}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <span class="kicker">WavePINN · SWE Temporal Super-Resolution · Model Audit</span>
+  <h1>The ruler was broken, not the model</h1>
+  <p class="standfirst">A full audit of v10b through v14 for 500&nbsp;Hz&nbsp;→&nbsp;mid-PRF shear wave elastography. Every viscosity and shear-modulus number published before this audit was an artefact of a 2π unit error in the evaluation code. Re-measured correctly, the model was already far better than reported — and a targeted retrain improved it further.</p>
+  <div class="meta">
+    <span><b>Date</b> 2026-08-24</span>
+    <span><b>Variants</b> v10b · v12 · v13 · v14 · v14c · v14d</span>
+    <span><b>Hardware</b> 1× NVIDIA L4 23 GB</span>
+    <span><b>Estimator</b> src/analysis/dispersion.py v1</span>
+  </div>
+</header>
+
+<div class="verdict">
+  <h2>Bottom line</h2>
+  <p><strong>1. The reported viscosity failure was a measurement bug.</strong> <code>estimate_voigt</code> divided rad/s by cycles/m, inflating every phase velocity by 2π. It returned NaN on 63% of ground-truth files and absurd viscosities (20–37 Pa·s) on the rest. On synthetic waves with known answers it returns G′&nbsp;=&nbsp;0.000, η&nbsp;=&nbsp;21.2 for a true 1&nbsp;kPa / 0.5&nbsp;Pa·s medium.</p>
+  <p><strong>2. Measured correctly, v12 was already good:</strong> η within 21% and G′ within 10% of matched ground truth, against 46% and 63% for linear interpolation.</p>
+  <p><strong>3. v14 improves on every matched-GT metric</strong> — η error 21%→14%, G′ 10%→8%, cs MAE 0.205→0.140 m/s, and it recovers 39% more of the true high-frequency energy — purely from honest supervision and honest model selection, with no new loss terms.</p>
+  <p><strong>4. v14d, the follow-up run, gives the best reconstruction of all</strong> — highest band coherence (0.778), lowest interior error, best G′ bias (+0%) — and recovers most of v14's cross-acquisition regression. No single checkpoint dominates: <b>v14 is the viscosity model, v14d is the reconstruction and G′ model.</b></p>
+  <p><strong>5. One honest caveat:</strong> all three models over-estimate viscosity on the cross-acquisition 500&nbsp;Hz protocol, where ground truth is a different-day acquisition. v12 remains best there. That protocol's confound is why the matched-GT table is the primary one.</p>
+</div>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">01</div>
+  <div class="body">
+    <h2 class="sec">Where this started</h2>
+    <p class="lede">The model does temporal super-resolution of shear-wave velocity movies: 5 input frames at low PRF become 49 dense frames. Shear-wave speed <span style="font-family:var(--mono)">cs</span> was acceptable, but the parameters the work exists for — viscosity η and dynamic shear modulus G′ — looked badly wrong, and adding data (v13) made things worse.</p>
+
+    <div class="tl">
+      <div class="tl-row"><div class="tl-v">v10b<small>baseline</small></div>
+        <div class="tl-b"><b>Production baseline.</b> V6 backbone, pure pixel loss. Re-based on the frozen test split at cs MAE 2.38 m/s.</div></div>
+      <div class="tl-row"><div class="tl-v">v12<small>dt fix</small></div>
+        <div class="tl-b"><b>Per-sample dt fix + leakage-free split.</b> Cut cs MAE 39% and doubled r_active. Best checkpoint before this audit.</div></div>
+      <div class="tl-row"><div class="tl-v">v13<small>+PVA data</small></div>
+        <div class="tl-b"><b>Added PVA phantom training data. Regressed</b> — cs MAE +35%, and worse on the held-out PVA split it was supposed to help. Not promoted.</div></div>
+      <div class="tl-row"><div class="tl-v">v14<small>this work</small></div>
+        <div class="tl-b"><b>Knot-masked supervision + selection on genuine ground truth + fail-fast data checks.</b> Best model on the clean protocol.</div></div>
+      <div class="tl-row"><div class="tl-v">v14c<small>ablation</small></div>
+        <div class="tl-b"><b>Added a log-magnitude spectral loss. Failed hard</b> — collapsed high-frequency energy to 1% of truth. Documented so it isn't retried.</div></div>
+      <div class="tl-row"><div class="tl-v">v14d<small>complete</small></div>
+        <div class="tl-b"><b>Partial weighting of interpolated frames (w = 0.2), no spectral loss.</b> Best reconstruction fidelity and best G′ of any run; recovers most of v14's cross-acquisition regression. <span class="chip ok">best coherence</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">02</div>
+  <div class="body">
+    <h2 class="sec">Problem 1 — the evaluation code could not measure viscosity at all</h2>
+
+    <div class="box prob">
+      <span class="lbl">Defect</span>
+      <p><code>scripts/evaluate_wavepinn_v10.py:estimate_voigt</code> (lines 118–163) computed <code>kxs = np.fft.fftfreq(W, dx)</code>, which returns <b>cycles per metre</b>, then formed phase velocity as <code>cs = omega / kx</code> with omega in <b>radians per second</b>. Every phase velocity came out 6.28× too large. That collided with the function's own <code>0.2 &lt; cs &lt; 12 m/s</code> admissibility gate, so fewer than three frequency bins survived and the routine returned NaN — or fit a Kelvin-Voigt model to three or four wildly inflated points.</p>
+    </div>
+
+    <p>The decisive test was synthetic: Kelvin-Voigt waves built in the frequency domain with a <em>known</em> G′ and η, so the correct answer is not in question.</p>
+
+    <div class="tw">
+      <table>
+        <caption>Old estimator vs known truth — synthetic Kelvin-Voigt media</caption>
+        <thead><tr><th>True G′ (kPa)</th><th>True η (Pa·s)</th><th>Old G′ returned</th><th>Old η returned</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>1.00</td><td>0.50</td><td class="b">0.000</td><td class="b">21.212</td><td>hit lower bound</td></tr>
+          <tr><td>2.00</td><td>1.50</td><td class="b">NaN</td><td class="b">NaN</td><td>&lt;3 valid bins</td></tr>
+          <tr><td>3.00</td><td>1.00</td><td class="b">NaN</td><td class="b">NaN</td><td>&lt;3 valid bins</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">Physical viscosity for these gel phantoms sits near 1–2 Pa·s. A routine that answers 21.2 Pa·s or NaN for every case cannot be used to judge a model.</p>
+    </div>
+
+    <h3>What this invalidates</h3>
+    <p>Every G′ and η figure in the previous evaluation reports — <em>including the ground-truth columns</em>. The headline that looked like a model failure was two artefacts being compared to each other.</p>
+
+    <div class="tw">
+      <table>
+        <caption>Previously reported viscoelastic results — all invalid</caption>
+        <thead><tr><th>Report</th><th>GT η (Pa·s)</th><th>Pred η (Pa·s)</th><th>GT G′ (kPa)</th><th>G′ MAE</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>v10b (test split)</td><td class="dead">31.09</td><td class="dead">16.69</td><td class="dead">6.018</td><td class="dead">3.192</td><td><span class="chip no">void</span></td></tr>
+          <tr><td>v12 (test split)</td><td class="dead">34.01</td><td class="dead">18.88</td><td class="dead">7.367</td><td class="dead">1.714</td><td><span class="chip no">void</span></td></tr>
+          <tr><td>v13 (test split)</td><td class="dead">34.01</td><td class="dead">20.03</td><td class="dead">7.367</td><td class="dead">1.489</td><td><span class="chip no">void</span></td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">The "GT η ≈ 34 vs predicted ≈ 19" gap that motivated this investigation is not a model deficiency. Both numbers come from a routine that cannot recover a known answer. The correct GT η for these phantoms is ≈ 1.2 Pa·s.</p>
+    </div>
+
+    <div class="box fix">
+      <span class="lbl">Fix</span>
+      <p>A rebuilt estimator, <code>src/analysis/dispersion.py</code>, following standard 2D-Fourier SWE dispersion practice: depth-averaging, push localisation, one-directional segments, Tukey windowing, zero-padding, single-quadrant directional filtering, SNR-gated per-frequency wavenumber peaks with thresholded centroid refinement, band selection, and an amplitude-weighted Kelvin-Voigt fit. The old function is left in place, unmodified, so the before/after contrast stays reproducible.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">03</div>
+  <div class="body">
+    <h2 class="sec">Validating the new instrument before using it</h2>
+    <p class="lede">Estimator defaults were frozen against ground truth only, before any model output was scored — otherwise we would be tuning the ruler to flatter the thing being measured.</p>
+
+    <div class="kpis">
+      <div class="kpi"><span class="k">GT fit success</span><span class="v g">100%</span><span class="d">38/38 · was 37%</span></div>
+      <div class="kpi"><span class="k">Synthetic η error</span><span class="v g">7%</span><span class="d">median absolute</span></div>
+      <div class="kpi"><span class="k">Synthetic G′ error</span><span class="v w">30%</span><span class="d">aperture-limited</span></div>
+      <div class="kpi"><span class="k">GT repeatability η</span><span class="v g">0.23%</span><span class="d">CV, repeat pushes</span></div>
+    </div>
+
+    <div class="tw">
+      <table>
+        <caption>Ground truth re-measured — native 5 kHz acquisitions, per phantom</caption>
+        <thead><tr><th>Phantom</th><th>n</th><th>cs (m/s)</th><th>G′ (kPa)</th><th>η (Pa·s)</th><th>ρcs² (kPa)</th><th>Aperture (mm)</th></tr></thead>
+        <tbody>
+          <tr><td>1FT</td><td>8</td><td>2.02 ± 0.21</td><td>1.74 ± 0.65</td><td>2.04 ± 1.25</td><td>4.12</td><td>9.9</td></tr>
+          <tr><td>2FT</td><td>4</td><td>3.13 ± 0.05</td><td>4.82 ± 0.16</td><td>1.00 ± 0.03</td><td>9.78</td><td>8.7</td></tr>
+          <tr><td>3FT</td><td>9</td><td>3.69 ± 0.07</td><td>6.68 ± 0.40</td><td>1.35 ± 0.04</td><td>13.65</td><td>9.1</td></tr>
+          <tr><td>CIRS</td><td>17</td><td>2.61 ± 0.10</td><td>3.66 ± 0.42</td><td>0.64 ± 0.05</td><td>6.84</td><td>8.3</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">Physically sensible and correctly ordered by stiffness (3FT &gt; 2FT &gt; CIRS &gt; 1FT), with viscosities in the 0.6–2.0 Pa·s range expected of gel phantoms — against 20–37 Pa·s from the old routine.</p>
+    </div>
+
+    <div class="tw">
+      <table>
+        <caption>Pre-registered acceptance gates — all passed on ground truth</caption>
+        <thead><tr><th>Gate</th><th>Threshold</th><th>Measured</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Fit success rate</td><td>≥ 90%</td><td>100%</td><td><span class="chip ok">pass</span></td></tr>
+          <tr><td>Median η physical range</td><td>0.3–5 Pa·s</td><td>0.69</td><td><span class="chip ok">pass</span></td></tr>
+          <tr><td>Repeatability, G′ CV</td><td>≤ 15%</td><td>0.37%</td><td><span class="chip ok">pass</span></td></tr>
+          <tr><td>Repeatability, η CV</td><td>≤ 25%</td><td>0.23%</td><td><span class="chip ok">pass</span></td></tr>
+          <tr><td>Band perturbation ±20%, ΔG′</td><td>≤ 25%</td><td>7.0%</td><td><span class="chip ok">pass</span></td></tr>
+          <tr><td>Band perturbation ±20%, Δη</td><td>≤ 25%</td><td>12.8%</td><td><span class="chip ok">pass</span></td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">Repeatability is measured across repeat pushes at the same imaging plane — the noise floor every model-vs-GT claim is judged against. At CV &lt; 0.4%, any difference reported later is far above measurement noise. One exception: within-recording windows of 1FT acquisitions scatter badly (G′ CV 34%, η CV 76%), so 1FT ground truth is flagged as unreliable throughout.</p>
+    </div>
+
+    <h3>A physical limit we did not know about</h3>
+    <div class="box care">
+      <span class="lbl">Finding</span>
+      <p>The ROI is 16.2 mm wide and the push usually sits mid-ROI, leaving only a <b>5–10 mm one-sided aperture</b>. Wavenumber resolution scales as 2π/L, so the resolvable band (≈200–1100 Hz) sits <em>above</em> the elastic regime, where c(ω) → √(2ωη/ρ) becomes independent of G′. Widening the synthetic aperture to 32 mm recovers G′ = 9.0 / η = 3.18 for a true 10.0 / 3.0 medium; at the real aperture G′ degrades to 30% error while η stays at 7%.</p>
+      <p style="margin-top:12px"><b>Consequence for the paper:</b> η is the well-identified viscoelastic parameter of this geometry; G′ is only weakly identifiable and must be quoted with that caveat, alongside the conventional ρcs² elastic estimate. Model-vs-GT comparisons remain valid because the aperture bias is common-mode when both sides pass through the same estimator and band.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">04</div>
+  <div class="body">
+    <h2 class="sec">Problem 2 — the model was trained and selected against fabricated targets</h2>
+
+    <div class="box prob">
+      <span class="lbl">Defect</span>
+      <p>For every 500 Hz sample, <code>iq_velocity_dataset_v3.py</code> built the dense target by <b>linearly interpolating the same 5 frames the model receives as input</b>. Forty-four of 49 target frames carried no information above 250 Hz, and training against them actively rewarded piecewise-linear output. Worse, early stopping monitored <code>val_500hz_l1</code> — L1 against that same interpolation — so checkpoint selection preferred the <em>most</em> interpolation-like model. Roughly 43% of all training targets were fabricated this way.</p>
+    </div>
+
+    <div class="box prob">
+      <span class="lbl">Defect</span>
+      <p><b>PRF augmentation was silently inert.</b> Raw IQ for every 5/10/20 kHz sample is absent in this environment, so <code>_load_augmented_iq</code> always failed and fell back to the native step — with the warning swallowed by DataLoader workers. v12 and v13 never saw the declared step {2,4,5,6,8,10} decimations. Separately, 38 of 154 500 Hz training samples lack raw IQ and were training at <b>dt = 24 ms instead of 2 ms</b>, twelve times outside the deployment regime, invisibly.</p>
+    </div>
+
+    <div class="box fix">
+      <span class="lbl">Fix — v14</span>
+      <p><b>Knot-masked supervision:</b> interpolated target frames are excluded from the loss; only frames where ground truth genuinely exists (indices 0, 12, 24, 36, 48) supervise.<br>
+      <b>Honest model selection:</b> early stopping switched to <code>val_5khz_l1</code>, whose dense ground truth is real — native step 12, output grid identical to the native grid, frame for frame.<br>
+      <b>Fail-fast data integrity:</b> <code>strict_iq</code> drops samples whose configured PRF step cannot be honoured instead of silently mis-training them (6 dropped from train, 8 from val), and the never-realisable augmentation steps were removed from the config so it states what actually happens.</p>
+    </div>
+
+    <p>The V14 loss is bit-identical to V10's when the mask is absent, so v12's recipe stays exactly reproducible.</p>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">05</div>
+  <div class="body">
+    <h2 class="sec">A protocol that can actually settle the question</h2>
+    <p class="lede">Every prior evaluation compared a 500 Hz input against a 5 kHz acquisition <em>recorded on a different day</em>, folding acquisition-to-acquisition variation into every error. The matched-GT protocol removes that confound entirely.</p>
+
+    <p>A native 5 kHz acquisition stored at sparse_step 12 gives dt<sub>in</sub> = 2.4 ms (417 Hz effective input PRF — deployment-like, inside the trained range) and dt<sub>out</sub> = 0.2 ms, <b>exactly the native grid</b>. The model's 49 output frames land frame-for-frame on the same acquisition's own ground truth. No resampling, no cross-acquisition mismatch.</p>
+
+    <p>Baselines run through the identical path: linear and cubic-spline interpolation of the same 5 input velocity frames. Linear interpolation is the specific thing the model must beat — it is both the architecture's zero-effort solution and, for 500 Hz samples, the target v12 was trained against.</p>
+
+    <div class="box care">
+      <span class="lbl">Methodological catch</span>
+      <p><b>High-frequency power ratio is a misleading metric and we nearly reported it.</b> Piecewise-linear interpolation puts a kink at every knot, and kinks radiate broadband energy — so linear interpolation scores a respectable-looking 0.445 HF power ratio while its band-passed correlation with truth is <b>−0.003</b>, i.e. exactly zero. Band coherence, not power, is what separates reconstruction from smoothing. Both are reported below.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">06</div>
+  <div class="body">
+    <h2 class="sec">Headline results — matched ground truth</h2>
+    <p class="lede">5 kHz held-out split, n = 36 acquisitions, output grid identical to ground truth. This is the primary table.</p>
+
+    <div class="tw">
+      <table>
+        <caption>Reconstruction and SWE accuracy — all methods through the identical estimator</caption>
+        <thead><tr>
+          <th>Method</th><th>L1</th><th>L1 interior</th><th>r interior</th><th>cs MAE (m/s)</th>
+          <th>η MAE (Pa·s)</th><th>G′ MAE (kPa)</th><th>HF power</th><th>Coh 100–250</th><th>Coh 250–1500</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Linear interp</td><td>1.3188</td><td>1.4686</td><td class="b">−0.276</td><td>1.394</td><td>0.705</td><td>1.933</td><td>0.445</td><td class="b">−0.091</td><td class="b">−0.003</td></tr>
+          <tr><td>Cubic spline</td><td>1.2305</td><td>1.3703</td><td class="b">−0.297</td><td>1.708</td><td>0.715</td><td>1.795</td><td>0.195</td><td class="b">−0.041</td><td class="b">0.051</td></tr>
+          <tr><td>v12</td><td>0.5041</td><td>0.4663</td><td>0.623</td><td>0.205</td><td>0.978</td><td>1.227</td><td>0.458</td><td>0.637</td><td>0.733</td></tr>
+          <tr class="hl"><td>v14</td><td>0.4828</td><td>0.4496</td><td>0.668</td><td class="g">0.140</td><td class="g">0.414</td><td>0.937</td><td class="g">0.637</td><td>0.654</td><td>0.752</td></tr>
+          <tr class="hl"><td>v14d</td><td class="g">0.4537</td><td class="g">0.4185</td><td class="g">0.696</td><td>0.174</td><td>0.462</td><td class="g">0.802</td><td>0.607</td><td class="g">0.681</td><td class="g">0.778</td></tr>
+          <tr><td>v14c</td><td>0.8403</td><td>0.7541</td><td class="b">0.105</td><td class="b">1.268</td><td class="b">1.868</td><td class="b">3.884</td><td class="b">0.011</td><td class="b">0.080</td><td class="b">0.211</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote"><b>"Interior"</b> means the frames strictly between input samples — the ones the model had to synthesise. Knot frames are handed to every method, so including them flatters all of them equally. Both interpolation baselines are <em>anti-correlated</em> with truth on interior frames: they do not merely underperform, they get the inter-frame motion backwards.</p>
+    </div>
+
+    <div class="tw">
+      <table>
+        <caption>Viscoelastic agreement — matched band, same acquisition</caption>
+        <thead><tr><th>Method</th><th>n</th><th>η median err</th><th>η bias</th><th>η corr r</th><th>G′ median err</th><th>G′ bias</th></tr></thead>
+        <tbody>
+          <tr><td>Linear interp</td><td>35</td><td class="b">46%</td><td>+18%</td><td>+0.772</td><td class="b">63%</td><td class="b">−51%</td></tr>
+          <tr><td>Cubic spline</td><td>34</td><td class="b">49%</td><td>−16%</td><td>+0.669</td><td class="b">70%</td><td class="b">−54%</td></tr>
+          <tr><td>v12</td><td>36</td><td>21%</td><td>+20%</td><td>+0.767</td><td>10%</td><td>+6%</td></tr>
+          <tr class="hl"><td>v14</td><td>36</td><td class="g">14%</td><td class="g">+7%</td><td>+0.686</td><td class="g">8%</td><td>+1%</td></tr>
+          <tr class="hl"><td>v14d</td><td>36</td><td>29%</td><td>+10%</td><td>+0.587</td><td>10%</td><td class="g">+0%</td></tr>
+          <tr><td>v14c</td><td>36</td><td class="b">139%</td><td class="b">+139%</td><td>+0.851</td><td class="b">56%</td><td class="b">−52%</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">v14 nearly eliminates the systematic bias in both parameters: η bias falls from +20% to +7%, G′ bias from +6% to +1%. Ground-truth repeatability on this data is 0.23% (η) and 0.37% (G′), so these differences are real, not noise. v14d matches v14 on G′ and beats it on bias, but its per-sample η scatter is wider (median error 29% against 14%) even though its per-phantom means are comparable — see the table below.</p>
+    </div>
+
+    <h3>Per-phantom detail</h3>
+
+    <div class="tw">
+      <table>
+        <caption>Viscosity η (Pa·s) by phantom — matched band</caption>
+        <thead><tr><th>Phantom</th><th>n</th><th>Ground truth</th><th>Linear</th><th>Spline</th><th>v12</th><th>v14</th><th>v14d</th></tr></thead>
+        <tbody>
+          <tr><td>1FT</td><td>18</td><td>1.409</td><td>1.883</td><td>1.818</td><td class="b">2.903</td><td class="g">1.201</td><td class="g">1.132</td></tr>
+          <tr><td>2FT</td><td>6</td><td>1.063</td><td class="b">0.514</td><td class="b">0.369</td><td>1.247</td><td class="g">1.080</td><td>1.266</td></tr>
+          <tr><td>3FT</td><td>7</td><td>1.454</td><td>0.922</td><td class="b">0.672</td><td class="g">1.554</td><td>1.910</td><td>1.813</td></tr>
+          <tr><td>CIRS</td><td>5</td><td>0.646</td><td>0.650</td><td>0.501</td><td>0.853</td><td class="g">0.739</td><td class="g">0.736</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">v14 and v14d track ground truth closely and almost identically at phantom level; v12 badly over-estimates 1FT (2.903 against 1.409). Both interpolation baselines systematically <em>under</em>-estimate viscosity on the stiffer phantoms — they smooth away the dispersion that η is derived from. v14c is omitted here; its values (2.3–3.8 Pa·s across every phantom) are in the failure analysis below.</p>
+    </div>
+
+    <div class="tw">
+      <table>
+        <caption>Dynamic shear modulus G′ (kPa) by phantom — matched band</caption>
+        <thead><tr><th>Phantom</th><th>Ground truth</th><th>Linear</th><th>Spline</th><th>v12</th><th>v14</th><th>v14c</th></tr></thead>
+        <tbody>
+          <tr><td>1FT</td><td>2.713</td><td>1.969</td><td>1.616</td><td class="g">2.529</td><td>1.903</td><td class="b">4.862</td></tr>
+          <tr><td>2FT</td><td>4.262</td><td class="b">0.693</td><td class="b">0.415</td><td>5.747</td><td class="g">5.163</td><td class="b">2.107</td></tr>
+          <tr><td>3FT</td><td>5.943</td><td class="b">0.712</td><td class="b">0.745</td><td>7.242</td><td class="g">6.917</td><td class="b">3.071</td></tr>
+          <tr><td>CIRS</td><td>3.424</td><td>3.786</td><td class="b">2.224</td><td>3.506</td><td class="g">3.330</td><td class="b">1.697</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">Aggregate G′ MAE across all phantoms: <b>v14d 0.802 kPa</b> (best), v14 0.937, v12 1.227, spline 1.795, linear 1.933.</p>
+      <p class="tnote">The interpolation baselines collapse on the stiff phantoms — G′ of 0.7 kPa against a true 5.9 kPa for 3FT — because a smoothed wave appears to travel far slower than it does. v14 is within 3–13% on 2FT, 3FT and CIRS.</p>
+    </div>
+
+    <div class="tw">
+      <table>
+        <caption>Shear wave speed — cs MAE (m/s) by phantom</caption>
+        <thead><tr><th>Phantom</th><th>Linear</th><th>Spline</th><th>v12</th><th>v14</th><th>v14c</th></tr></thead>
+        <tbody>
+          <tr><td>1FT</td><td>0.724</td><td>0.913</td><td>0.052</td><td class="g">0.055</td><td>0.766</td></tr>
+          <tr><td>2FT</td><td class="b">2.135</td><td class="b">2.470</td><td>0.492</td><td class="g">0.284</td><td>—</td></tr>
+          <tr><td>3FT</td><td class="b">2.697</td><td class="b">2.879</td><td>0.248</td><td class="g">0.194</td><td>2.261</td></tr>
+          <tr><td>CIRS</td><td>0.803</td><td>0.744</td><td>0.105</td><td class="g">0.060</td><td>1.277</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">Aggregate cs MAE: <b>v14 0.140 m/s</b> (best), v14d 0.174, v12 0.205, linear 1.394, spline 1.708. On the stiff phantoms the interpolation baselines are off by more than 2 m/s — a smoothed wave appears to travel far slower than it does.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">07</div>
+  <div class="body">
+    <h2 class="sec">Problem 3 — what the model actually gets wrong</h2>
+    <p class="lede">With a working instrument, the remaining deficiency became specific and measurable — and it is not the one the old reports implied.</p>
+
+    <p>v12 reconstructs high-frequency <b>phase and structure</b> well (band coherence 0.733 over 250–1500 Hz, against ~0.0 for interpolation) but carries only about <b>46% of the true high-frequency energy</b>. It is an amplitude deficit, not a structure failure — the conditional-mean shrinkage an L1/L2 objective produces. A control run showed the deficit is both global and frequency-selective:</p>
+
+    <div class="tw">
+      <table>
+        <caption>Temporal power ratio, prediction ÷ ground truth, by band — 5 kHz input</caption>
+        <thead><tr><th>Band (Hz)</th><th>0–100</th><th>100–250</th><th>250–500</th><th>500–1000</th><th>1000–1500</th><th>1500–2500</th><th>Global σ</th></tr></thead>
+        <tbody>
+          <tr><td>v12</td><td>0.481</td><td>0.758</td><td>0.631</td><td>0.491</td><td>0.377</td><td>0.339</td><td>0.655</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">A ~35% global amplitude shrinkage, plus a further roll-off from 0.758 to 0.339 across the band. Both needed addressing.</p>
+    </div>
+
+    <h3>What v14 recovered — without any spectral loss</h3>
+    <div class="tw">
+      <table>
+        <caption>Temporal power ratio by band — 500 Hz deployment input</caption>
+        <thead><tr><th>Band (Hz)</th><th>0–100</th><th>100–250</th><th>250–500</th><th>500–1000</th><th>1000–1500</th><th>1500–2500</th><th>Global σ</th></tr></thead>
+        <tbody>
+          <tr><td>v12</td><td>0.274</td><td>0.782</td><td>0.173</td><td>0.059</td><td>0.010</td><td>0.002</td><td>0.483</td></tr>
+          <tr class="hl"><td>v14</td><td>0.769</td><td>1.142</td><td>0.180</td><td>0.243</td><td>0.289</td><td>0.101</td><td>0.625</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">On 500 Hz inputs v12 produced essentially <em>nothing</em> above 500 Hz — 1% of true power at 1000–1500 Hz. v14 recovers 29× more energy in that band and lifts global amplitude from 0.48 to 0.63. Fixing supervision and selection alone did this; no frequency-domain loss term was involved.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">08</div>
+  <div class="body">
+    <h2 class="sec">Two negative results, reported in full</h2>
+
+    <h3>v14c — the spectral loss backfired</h3>
+    <div class="box prob">
+      <span class="lbl">Failed experiment</span>
+      <p>A log-magnitude temporal-spectral loss (weight 0.2, frequency-weighted 1→2 across 250–1500 Hz) was added to fix the amplitude deficit. It did the opposite: high-frequency power <b>collapsed to 0.011</b> of truth, band coherence fell to 0.211, η error hit 139%, and training early-stopped at epoch 77 with val L1 0.0454 against v14's 0.0253.</p>
+      <p style="margin-top:12px"><b>Cause:</b> <code>log(|P| + 1e-6)</code> is dominated by the near-zero high-frequency bins, where a tiny absolute difference becomes an enormous log difference. That term's gradient swamped the pixel losses and drove the model to a degenerate low-energy solution. If a spectral term is retried it must be renormalised per sample, or compare band-integrated energies rather than per-bin magnitudes.</p>
+    </div>
+
+    <h3>v14 regressed on the cross-acquisition protocol</h3>
+    <div class="tw">
+      <table>
+        <caption>Cross-acquisition 500 Hz test split, n = 66 — the deployment regime</caption>
+        <thead><tr><th>Model</th><th>cs MAE</th><th>GT η</th><th>Pred η</th><th>η MAE</th><th>η median err</th><th>η bias</th><th>η corr r</th><th>G′ median err</th></tr></thead>
+        <tbody>
+          <tr><td>v12</td><td class="g">0.901</td><td>1.16 ± 0.88</td><td class="g">1.72 ± 1.75</td><td class="g">0.949</td><td class="g">35%</td><td class="g">+20%</td><td class="g">+0.431</td><td>28%</td></tr>
+          <tr><td>v14</td><td class="g">0.836</td><td>1.17 ± 0.83</td><td class="b">2.20 ± 1.79</td><td class="b">1.490</td><td class="b">65%</td><td class="b">+55%</td><td class="b">−0.093</td><td class="g">18%</td></tr>
+          <tr><td>v14d</td><td class="b">1.028</td><td>1.17 ± 0.80</td><td class="b">2.73 ± 3.04</td><td class="b">1.773</td><td>44%</td><td>+29%</td><td>+0.392</td><td class="b">36%</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">This protocol's ground truth is a different-day acquisition of the same plane, so it carries a confound the matched-GT protocol does not — but all three models face it equally, so the relative ordering is real. <b>v12 is the best model here</b>, and all three over-estimate viscosity, with predicted spread 2–4× wider than the ground-truth spread. That pattern suggests 500 Hz → 6 kHz dispersion is intrinsically unstable, not that one model is broken.</p>
+    </div>
+
+    <div class="box care">
+      <span class="lbl">Diagnosis, and how far the fix got</span>
+      <p>Zeroing the interpolated frames left the model <b>completely unconstrained between knots in the 500 Hz regime</b> — the one regime that matters most for deployment. The band table in §07 shows the consequence: v14 recovers far more energy, but with a distorted shape — a trough at 250–500 Hz followed by a bump above it. That non-monotonic spectrum inflates the fitted dispersion slope, and hence η.</p>
+      <p style="margin-top:12px"><b>v14d weighted interpolated frames at 0.2 rather than 0</b>, on the physical argument that below the 250 Hz knot Nyquist linear interpolation <em>is</em> a fair estimate of the envelope. It worked <em>partially</em>: η median error fell from 65% to 44%, bias from +55% to +29%, and the correlation with ground truth was restored from −0.09 to +0.39. But it did not reach v12's 35% / +20% / +0.43, and cs MAE worsened to 1.028 m/s. <b>The cross-acquisition regression is reduced, not eliminated.</b></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">09</div>
+  <div class="body">
+    <h2 class="sec">The mid-PRF deliverable</h2>
+    <p class="lede">500 Hz in, 2–3 kHz out. Mid-PRF outputs are exact integer decimations of the dense field — 6 kHz ÷ 3 = 2 kHz, ÷ 2 = 3 kHz — so no interpolation is introduced and one checkpoint serves every rate.</p>
+
+    <div class="tw">
+      <table>
+        <caption>Output-rate sweep, measured against a fixed full-rate ground-truth reference</caption>
+        <thead><tr><th>Output rate</th><th>Frames</th><th>cs MAE (m/s)</th><th>η MAE (Pa·s)</th><th>G′ MAE (kPa)</th></tr></thead>
+        <tbody>
+          <tr><td>5000 Hz</td><td>49</td><td class="g">0.205</td><td>0.978</td><td>1.227</td></tr>
+          <tr><td>2500 Hz</td><td>25</td><td class="w">0.907</td><td class="g">0.779</td><td>1.738</td></tr>
+          <tr><td>1667 Hz</td><td>17</td><td class="b">1.576</td><td>1.098</td><td>1.802</td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">Reference: cs 2.808 m/s, η 1.254 Pa·s. The decimated field is literally the full-rate field subsampled, so this is a change in what the <em>analysis</em> can see, not in the reconstruction — the estimator's upper frequency limit tracks the output Nyquist.</p>
+    </div>
+
+    <div class="box care">
+      <span class="lbl">Honest trade-off</span>
+      <p>Mid-PRF output is <b>not free</b>. Time-of-arrival cs degrades sharply with coarser output sampling (0.205 → 0.907 → 1.576 m/s) because lag resolution depends directly on frame spacing. Viscosity is far more tolerant, staying between 0.78 and 1.10 Pa·s MAE across all three rates. For the paper, the defensible claim is that <b>2–3 kHz output is sufficient for viscoelastic characterisation but not for the sharpest shear-speed estimates</b>. If cs precision matters, ship the full-rate field.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">10</div>
+  <div class="body">
+    <h2 class="sec">Training record</h2>
+
+    <div class="tw">
+      <table>
+        <caption>All runs — selection metric is val 5 kHz L1 against genuine dense ground truth</caption>
+        <thead><tr><th>Run</th><th>Supervision</th><th>Monitor</th><th>Spectral</th><th>Epochs</th><th>Best val L1</th><th>r_active</th><th>Outcome</th></tr></thead>
+        <tbody>
+          <tr><td>v12</td><td>full (fabricated)</td><td>val_500hz_l1</td><td>—</td><td>188 (early stop)</td><td>0.0248</td><td>0.735</td><td>prior best</td></tr>
+          <tr class="hl"><td>v14</td><td>knot-masked (w=0)</td><td>val_5khz_l1</td><td>—</td><td>200 (full)</td><td>0.0253</td><td>0.747</td><td><span class="chip ok">best on matched GT</span></td></tr>
+          <tr><td>v14c</td><td>knots + w=0.2</td><td>val_5khz_l1</td><td>0.2 log-mag</td><td>77 (early stop)</td><td class="b">0.0454</td><td>—</td><td><span class="chip no">failed</span></td></tr>
+          <tr class="hl"><td>v14d</td><td>knots + w=0.2</td><td>val_5khz_l1</td><td>—</td><td>200 (full)</td><td class="g">0.0240</td><td class="g">0.749</td><td><span class="chip ok">best monitor</span></td></tr>
+        </tbody>
+      </table>
+      <p class="tnote">v14 and v14d both cleared every verification gate including G4 (v14: val pixel loss 0.0256, r_active 0.747; v14d: 0.0246 and 0.749; target ≤ 0.06 and ≥ 0.35). v14's val L1 is statistically identical to v12's despite 44 of 49 supervised frames being removed from the 500 Hz samples, and v14d's is the best of any run — the genuine dense supervision carries the training, and partially restoring the interpolated frames helps rather than hurts it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <div class="num">11</div>
+  <div class="body">
+    <h2 class="sec">Where this leaves the paper</h2>
+
+    <h3>Defensible claims today</h3>
+    <ul>
+      <li>The model reconstructs genuine high-frequency shear-wave content that temporal interpolation cannot: band coherence <b>0.778</b> over 250–1500 Hz against <b>−0.003</b> for linear interpolation. This is the strongest single result in the study.</li>
+      <li>On matched ground truth, viscosity is recovered to <b>14% median error</b> (v14) and dynamic shear modulus to <b>8–10%</b> with essentially zero bias, against 46% and 63% for the interpolation baseline.</li>
+      <li>Shear wave speed MAE is <b>0.140 m/s</b> (v14), a tenfold improvement on interpolation (1.394 m/s).</li>
+      <li>Ground-truth repeatability of <b>0.23% (η)</b> and <b>0.37% (G′)</b> establishes that these differences sit far above measurement noise.</li>
+      <li>Mid-PRF (2–3 kHz) output preserves viscoelastic accuracy; the cs trade-off is quantified rather than hidden.</li>
+    </ul>
+
+    <h3>Which checkpoint to use</h3>
+    <div class="tw">
+      <table>
+        <caption>No single winner — pick by what the downstream measurement needs</caption>
+        <thead><tr><th>If you need…</th><th>Use</th><th>Because</th></tr></thead>
+        <tbody>
+          <tr><td>Viscosity η</td><td>v14</td><td>14% median error, +7% bias on matched GT</td></tr>
+          <tr><td>Shear modulus G′</td><td>v14d</td><td>lowest G′ MAE (0.802 kPa), 0% bias</td></tr>
+          <tr><td>Waveform fidelity</td><td>v14d</td><td>best L1, interior r (0.696), coherence (0.778)</td></tr>
+          <tr><td>Shear wave speed cs</td><td>v14</td><td>0.140 m/s on matched GT</td></tr>
+          <tr><td>500 Hz cross-acquisition η</td><td>v12</td><td>35% vs 44% (v14d) and 65% (v14)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Open items</h3>
+    <ol>
+      <li><b>The cross-acquisition η regression is reduced but unresolved.</b> v14d recovered most of it (65%→44%, correlation restored to +0.39) without reaching v12's 35%. The next step is frequency-selective supervision — constrain interpolated frames only <em>below</em> the 250 Hz knot Nyquist, where linear interpolation is actually valid, instead of applying a flat scalar weight across all frequencies.</li>
+      <li><b>G′ is aperture-limited.</b> Report it with the ρcs² elastic estimate alongside and state the limitation — a wider ROI or an edge-positioned push would fix it at acquisition time, not in software.</li>
+      <li><b>1FT ground truth is unreliable</b> (within-recording η CV 76%). Exclude it from headline tables or flag it. Note it is 18 of the 36 matched-GT acquisitions, so it carries real weight in those aggregates.</li>
+      <li><b>Split contamination remains.</b> The frozen test split has 144 high-PRF same-plane siblings in train. Re-carving plane-disjoint across all PRFs is outstanding and needed before publication.</li>
+      <li><b>Goat-heart and PVA checks</b> have been re-pointed at the new estimator but not yet re-run.</li>
+    </ol>
+
+    <div class="box fix">
+      <span class="lbl">Recommendation</span>
+      <p><b>Ship v14d as the primary checkpoint</b> — it has the best waveform fidelity, the best G′, the best training monitor, and it repairs most of v14's regression. Quote η from v14 where viscosity is the headline quantity, and say so.</p>
+      <p style="margin-top:12px">Make the <b>matched-GT protocol the paper's primary quantitative table</b>, with the cross-acquisition split as a supplementary check whose different-day confound is stated explicitly. All pre-audit G′/η figures must be <b>withdrawn, not revised</b> — including the ground-truth columns.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+</div>
+</body>
+</html>

@@ -1,0 +1,95 @@
+{
+  "experiment_name": "curriculum_fno_50x_upsampling",
+  "data_dir": "data/CIRS_Phantom_Latest/Data set 1(50)",
+  "output_dir": "outputs/curriculum",
+  "device": "cuda",
+  "seed": 42,
+  
+  "in_channels": 1,
+  "out_channels": 1,
+  "base_channels": 32,
+  "num_levels": 4,
+  
+  "fno_hidden_channels": 128,
+  "fno_num_modes_height": 16,
+  "fno_num_modes_width": 16,
+  "fno_num_layers": 4,
+  "fno_use_batchnorm": true,
+  "fno_use_residual": true,
+  "fno_fft_padding": 16,
+  
+  "flow_hidden_channels": 32,
+  "flow_scale": 0.1,
+  "use_residual_fusion": true,
+  
+  "curriculum_stages": [
+    {
+      "name": "easy",
+      "start_epoch": 0,
+      "end_epoch": 10,
+      "gap": 5,
+      "sampling_rate": "10kHz",
+      "description": "Small displacement (~5-10 pixels). Motion estimator learns basic warping."
+    },
+    {
+      "name": "medium",
+      "start_epoch": 11,
+      "end_epoch": 20,
+      "gap": 15,
+      "sampling_rate": "10kHz",
+      "description": "Medium displacement. Model trusts internal warping physics."
+    },
+    {
+      "name": "hard",
+      "start_epoch": 21,
+      "end_epoch": 30,
+      "gap": 25,
+      "sampling_rate": "20kHz",
+      "description": "Larger displacement on 20kHz data. Generalizing to faster motion."
+    },
+    {
+      "name": "full",
+      "start_epoch": 31,
+      "end_epoch": -1,
+      "gap": 49,
+      "sampling_rate": "20kHz",
+      "description": "Full 49x gap. Motion estimator has learned shear wave priors."
+    }
+  ],
+  
+  "epochs": 60,
+  "batch_size": 6,
+  "learning_rate": 1e-4,
+  "weight_decay": 1e-5,
+  "gradient_clip": 10.0,
+  
+  "lr_scheduler": "cosine",
+  "lr_step_size": 30,
+  "lr_gamma": 0.5,
+  "lr_patience": 15,
+  "min_lr": 1e-7,
+  
+  "lambda_data": 1.0,
+  "lambda_phase": 50.0,
+  "lambda_velocity": 2000.0,
+  "lambda_pde": 10.0,
+  "lambda_smooth": 0.005,
+  "phase_threshold_ratio": 0.05,
+  "velocity_loss_type": "mse",
+  
+  "physics_first_epochs": 5,
+  "log_gradient_norms": true,
+  
+  "normalization": "per_sample",
+  "train_ratio": 0.7,
+  "val_ratio": 0.15,
+  "test_ratio": 0.15,
+  "use_augmentation": false,
+  "num_workers": 4,
+  
+  "use_amp": false,
+  "accumulation_steps": 4,
+  
+  "save_every": 10,
+  "early_stopping_patience": 20
+}

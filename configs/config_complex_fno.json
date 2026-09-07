@@ -1,0 +1,74 @@
+{
+  "experiment_name": "complex_fno_50x_20kHz_trial2",
+  "data_dir": "data/CIRS_Phantom_Latest/Data set 1(50)",
+  "output_dir": "outputs",
+  "device": "cuda",
+  "seed": 42,
+  
+  "in_channels": 1,
+  "out_channels": 1,
+  "base_channels": 32,
+  "num_levels": 4,
+  "upsampling_factor": 49,
+  
+  "fno_hidden_channels": 128,
+  "fno_num_modes_height": 16,
+  "fno_num_modes_width": 16,
+  "fno_num_layers": 4,
+  "fno_use_batchnorm": true,
+  "fno_use_residual": true,
+  "fno_fft_padding": 16,
+  
+  "flow_hidden_channels": 32,
+  "flow_scale": 0.1,
+  "use_residual_fusion": true,
+  
+  "epochs": 50,
+  "batch_size": 6,
+  "learning_rate": 1e-4,
+  "weight_decay": 1e-5,
+  "gradient_clip": 10.0,
+  
+  "lr_scheduler": "cosine",
+  "lr_step_size": 30,
+  "lr_gamma": 0.5,
+  "lr_patience": 15,
+  "min_lr": 1e-7,
+  
+  "lambda_data": 1.0,
+  "lambda_phase": 0.5,
+  "lambda_velocity": 0.5,
+  "lambda_physics": 0.0,
+  "lambda_physics_target": 0.0,
+  "lambda_smooth": 0.005,
+  "lambda_magnitude": 0.3,
+  "phase_threshold_ratio": 0.05,
+  "velocity_loss_type": "mse",
+  "use_physics_loss": false,
+  "physics_warmup_epochs": 20,
+  "normalize_physics_loss": true,
+  "physics_lr_multiplier": 0.1,
+  
+  "sparse_frame_step": 49,
+  "normalization": "per_sample",
+  "train_ratio": 0.7,
+  "val_ratio": 0.15,
+  "test_ratio": 0.15,
+  "use_augmentation": false,
+  "num_workers": 4,
+  
+  "use_amp": false,
+  "accumulation_steps": 4,
+  
+  "save_every": 10,
+  "early_stopping_patience": 40,
+  
+  "physics_params": {
+    "dt_seconds": 5e-5,
+    "dx_meters": 3.125e-4,
+    "dy_meters": 3.125e-4,
+    "mu_initial_pa": 6000,
+    "rho_kg_m3": 1000,
+    "eta_initial": 0.5
+  }
+}

@@ -1,0 +1,63 @@
+# --- Large / regenerable data & model artifacts (kept out of the repo, see DATA.md) ---
+/data/
+/outputs/
+/saved_models/
+/1FT/
+/500hz_raw_transfer/
+/PVA_Phantom/
+/Goat Heart Data/
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.mat
+*.h5
+
+# Non-code working documents not meant for version control
+*.docx
+this-codebase-contains-the-deep-pinwheel.md
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.eggs/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Environments ---
+.venv/
+venv/
+env/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Editors / IDEs ---
+.vscode/
+.idea/
+.cursor-server
+.vscode-server
+.windsurf-server
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Logs / tensorboard (also covered by /outputs/ above, kept for safety if generated elsewhere) ---
+*.log
+tensorboard/
+
+# --- Misc environment/session files present in this Lightning Studio workspace ---
+.lightning_studio/
+.lightningignore
+.claude/
+.claude.json
+.zsh_history
+.zcompdump*
+main.py
