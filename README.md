@@ -53,25 +53,3 @@ Developed against Python 3.12, PyTorch 2.8 (CUDA 12.8), PyTorch Lightning 2.6.
    SWE (shear-wave-speed) publication figure/table set.
 
 Every script accepts `--help` for its exact arguments and defaults.
-
-## Git LFS
-
-This repo has Git LFS configured (`.gitattributes`) for common large binary types
-(`*.pt`, `*.npy`, `*.mat`, `*.h5`, …), so model weights or data samples can be added
-later without further setup — see [`DATA.md`](DATA.md) for the size/cost tradeoffs
-before doing so (GitHub's free LFS quota is 1 GB storage / 1 GB bandwidth per month).
-
-## Known caveats (read before trusting reported numbers)
-
-- **Viscoelastic (G′/η) estimates from before 2026-08-24** used a Voigt estimator with
-  a wavenumber bug (missing factor of 2π) — those numbers are artifacts and should be
-  regenerated with the current `src/analysis/dispersion.py`.
-- **Ground-truth η near zero**: because acquisition records start at the push (no
-  pre-push baseline), fitted η is dominated by an onset-truncation artifact — treat
-  "true" η as ≈ 0 rather than the fitted value.
-- **Dispersion aperture limit**: the current 16 mm ROI makes G′ only weakly
-  identifiable from the dispersion fit (η is well identified; G′ is not) — see
-  `reports/SWE_dispersion_postprocessing_pipeline.md`.
-- **High-frequency amplitude**: v12-line models get the high-frequency *phase* right
-  but only ~46% of the HF *energy*; use band coherence to assess HF quality, not a raw
-  power ratio.
